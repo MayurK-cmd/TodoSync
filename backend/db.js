@@ -53,6 +53,7 @@ signupSchema.pre('deleteOne', { document: true, query: false }, async function (
 
 const Signup = mongoose.model('Signup', signupSchema);
 
+
 // Export both models
 module.exports = {
     Todo,
