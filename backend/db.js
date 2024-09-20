@@ -9,7 +9,11 @@ const todoSchema = mongoose.Schema({
     title: String,
     description: String,
     completed: Boolean,
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'Signup' } // Add reference to Signup
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'Signup' }, // Add reference to Signup
+    reminder: { type: Date, default: null }, // Optional reminder date
+    reminderTime: { type: String, default: null }, // Optional time in HH:mm format
+    image: { type: String, default: null }, // Optional image URL
+    labels: { type: [String], default: [] }, // Optional array of labels
 });
 
 const Todo = mongoose.model('todos', todoSchema);
@@ -52,7 +56,6 @@ signupSchema.pre('deleteOne', { document: true, query: false }, async function (
 });
 
 const Signup = mongoose.model('Signup', signupSchema);
-
 
 // Export both models
 module.exports = {
