@@ -10,6 +10,7 @@ app.use(cors());
 
 const JWT_SECRET = "your_secret_key"; // Use a strong secret key in production
 
+
 // Middleware to verify JWT
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
@@ -23,10 +24,11 @@ function authenticateToken(req, res, next) {
         if (err) {
             return res.status(403).json({ message: "Invalid token. Please log in again" });
         }
-        req.user = user; // Attach user information to request
+        req.user = user; // Attach user information (including _id) to request
         next();
     });
 }
+
 
 
 // Signup route
@@ -45,7 +47,8 @@ app.post('/signup', async (req, res) => {
         const user = new Signup(createPayload);
         await user.save();
         
-        const token = jwt.sign({ username: user.username }, JWT_SECRET, { expiresIn: '1h' });
+        // Include the user's _id in the JWT token payload
+        const token = jwt.sign({ _id: user._id, username: user.username }, JWT_SECRET, { expiresIn: '1h' });
         res.json({ msg: "Account signup successful!", token });
     } catch (error) {
         if (error.code === 11000 && error.keyPattern.username) {
@@ -54,6 +57,7 @@ app.post('/signup', async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 });
+
 
 // Login route
 app.post('/login', async (req, res) => {
@@ -74,14 +78,16 @@ app.post('/login', async (req, res) => {
             return res.status(400).json({ msg: "Incorrect password" });
         }
 
-        const token = jwt.sign({ username: user.username }, JWT_SECRET, { expiresIn: '1h' });
+        // Include the user's _id in the JWT token payload
+        const token = jwt.sign({ _id: user._id, username: user.username }, JWT_SECRET, { expiresIn: '1h' });
         res.json({ msg: "Login successful", token });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 });
 
-//Delete a user
+
+
 // Delete user and all associated todos
 app.delete("/username/:username", authenticateToken, async (req, res) => {
     const { username } = req.params;
@@ -133,7 +139,11 @@ app.post("/todo", authenticateToken, async function (req, res) {
             title: createPayload.title,
             description: createPayload.description,
             completed: false,
-            user: req.user._id // Associate the todo with the user
+            user: req.user._id,
+            reminder: createPayload.reminder || null, // Optional reminder date
+            reminderTime: createPayload.reminderTime || null, // Optional reminder time in HH:mm
+            image: createPayload.image || null, // Optional image
+            labels: createPayload.labels || [] // Optional labels
         });
 
         res.json({
@@ -146,26 +156,33 @@ app.post("/todo", authenticateToken, async function (req, res) {
 
 
 
+
 // Gets all todos (user must be authenticated)
 app.get("/todos", authenticateToken, async function (req, res) {
     try {
-        const todos = await Todo.find();
+        // Only get todos for the authenticated user using their _id
+        const todos = await Todo.find({ user: req.user._id });
         res.json(todos);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 });
 
+
+
+
 // Updates a todo by title (user must be authenticated)
 app.put("/todos/title/:title", authenticateToken, async (req, res) => {
     const { title } = req.params;
-    const { newTitle, description, completed } = req.body;
+    const { newTitle, description, completed, reminder, image, labels } = req.body;
 
-    // Create an update object, including only the fields that are provided
     const updateFields = {};
     if (newTitle !== undefined) updateFields.title = newTitle;
     if (description !== undefined) updateFields.description = description;
     if (completed !== undefined) updateFields.completed = completed;
+    if (reminder !== undefined) updateFields.reminder = reminder;
+    if (image !== undefined) updateFields.image = image;
+    if (labels !== undefined) updateFields.labels = labels;
 
     try {
         const updatedTodo = await Todo.findOneAndUpdate(
@@ -183,6 +200,7 @@ app.put("/todos/title/:title", authenticateToken, async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 });
+
 
 // Marks a todo as completed (user must be authenticated)
 app.put("/completed", authenticateToken, async function (req, res) {
